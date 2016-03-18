@@ -1,0 +1,155 @@
+---
+output: html_document
+---
+
+#Predicting Weight Lifting Activity Performance Using Machine Learning in R
+###by RinkoWill
+
+##Introduction
+This project makes use of the "Qualitative Activity Recognition of Weight Lifting Exercises" dataset created by Velloso, et al, which is focused on investigating how **well** a particualar activity is performed as opposed to **which** activity is performed and/or **how much** or **how often** an activity is performed. In this case, the data in question was gathered from a set of sensors placed on 6 participants who were asked to perform a simple weight lifting exercising in 5 different ways (1 correct and 4 incorrect). Each of the incorrect ways corresponds to common, yet specific mistakes in the activity. Each record in the dataset includes all of the readings from the various sensors, the name of the participans, and the class of the exercise (labelled "A" through "E").
+
+This report will detail the steps taken to create a predictive model using machine learning techniques in R to predict the class of exercise performance on new data. 
+
+##Data Source Citation
+Velloso, E.; Bulling, A.; Gellersen, H.; Ugulino, W.; Fuks, H. Qualitative Activity Recognition of Weight Lifting Exercises. Proceedings of 4th International Conference in Cooperation with SIGCHI (Augmented Human '13) . Stuttgart, Germany: ACM SIGCHI, 2013.
+
+##Downloading data
+The data for the project was found at:http://groupware.les.inf.puc-rio.br/har
+
+The following two .csv files (training and testing, respectively) were downloaded. The code is not reproduced here so that the reader may follow the download process of his or her choice.
+
+training = "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"  
+testing = "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+
+
+##Data Exploration and Processing
+To begin, some basic data exploration and processing is performed to prepare the data for further modeling.
+
+First, the required libraries are loaded.
+```{r message=FALSE}
+library("dplyr")
+library("caret")
+library("rpart")
+library("adabag")
+```
+
+Next the training and testing sets are read. We set the argument so that NA strings can be  indicated either by "NA" or by a blank field. The dimensions of each data set are determined. The datasets have 160 variables. The test set has 20 records; the training set has 19,622 records.
+
+```{r}
+training <- read.csv("C:/Users/Aruku/Desktop/RWorkingDirectory/machinelearningproject/MLP_trainingdata.csv",
+                     header=TRUE,na.strings=c("NA",""))
+testing <- read.csv("C:/Users/Aruku/Desktop/RWorkingDirectory/machinelearningproject/MLP_testingdata.csv",
+                    header=TRUE,na.strings=c("NA",""))
+```
+Dimensions of training data
+```{r}
+dim(training)
+```
+Dimensions of testing data
+```{r}
+dim(testing)
+```
+
+The testing data is set aside temporarily. It will be used later to predict new classes using the finalized model.
+
+The training data set is explored using the str() function. The output of this is not shown here due to its length. However, by looking at this output and the structure of the variables in the training set, it's clear that a substantial number of variables have lots of missing values. It will be necessary to remove variables with too many missing values as they will not be useful predictors. To see which variables might need to be removed, I found the percentage of NAs in each variable, and then removed the variable if the percentage was more than a certain amount, in this case, more than 25%.
+
+```{r}
+training_vars <- data.frame(Variable = names(training),
+                            PcntNA = rep(0,length(names(training))))
+training_vars[,1] <- as.character(training_vars[,1])
+training_vars[,2] <- as.numeric(training_vars[,2])
+
+for(i in 1:length(names(training))) {
+        pcntNA_i <- sum(is.na(training[,i]))/length(training[,i])
+        training_vars[i,2] <- pcntNA_i
+}
+keep_vars <- training_vars[which(training_vars[,2]<.25),1]
+training2 <- training[,names(training) %in% keep_vars]
+```
+
+To further scrub the data, I removed the 3 timestamp variables, since any new data would have completely different time stamps (so the prediction would always be "out of range" for those variables).
+
+```{r}
+##remove timestamp vars
+training2 <- select(training2,-(3:5))
+```
+
+Finally, I removed the label and factor variables so that only the sensor data variables remained since the point of the model is to be able to predict the manner in which an exercise is performed based on sensor data.
+
+```{r}
+##remove label and factors, so that only sensor data remains.
+training3 <- select(training2,-(1:4))
+```
+
+The training set "training3" now has 53 complete variables, including the outcome variable ("classe"). This is the dataset that will be used to create the model. 
+```{r}
+##Dimensions of reduced training set
+dim(training3)
+```
+The final, selected variables in the processed "training3" dataframe are listed below:
+```{r}
+names(training3)
+```
+
+##Data Partitioning
+After processing, the "training3" dataframe is ready to be partitioned into a Training Set that will be used to build the model and a Validation Set which will be used to estimate the out of sample error.
+
+```{r}
+inTrain <- createDataPartition(y=training3$classe,p=0.7,list=FALSE)
+TrainingSet <- training3[inTrain,]
+ValidationSet <- training3[-inTrain,]
+```
+
+##Boosting Algorithm: AdaBoost
+I decided to use Boosting to create the prediction model. Boosting can convert a set of weak learners into strong learners and can lead to rather accurate models. More specifically, I used the "Adaptive Boosting", or "AdaBoost" algorithm formulated by Yoav Freund and Robert Schapire. I selected AdaBoost because it can be applied to prediction models for multiple classes and because it has been referred to as the "best out-of-the-box classifer" (http://en.wikipedia.org/wiki/AdaBoost).
+
+##Training the Model: Multiple Iterations and Cross Validation
+The "adabag" package in R can apply the AdaBoost algorithm and includes options for cross validation. I applied the boosting function in the adabag package to the training set. The "mfinal" argument specifies the number of iterations for which boosting is run or the number of trees to use. I chose to use 100 iterations (the default value). 
+
+The argument 'rpart.control(xval = 50)' is borrowed from the rpart package and determines the number of cross-validations to be run. I chose to run 10 cross-validations on the training data to reduce the possibility of over-fitting. This value was selected based on sample models shown in the Adaboost package manual.
+
+```{r cache=TRUE}
+boostfit <- boosting(classe ~.,TrainingSet,boos=TRUE,mfinal=100,control=rpart.control(xval=10))
+```
+
+##Predicting New Values on the Validation Set
+Once the model is trained on the TrainingSet, the boosting object is used to predict new values in the Validation Set. The confusion matrix for the prediction model is shown below. This shows the predicted classes versus the observed classes in the Validation Set. 
+
+```{r}
+boostfit.pred <- predict.boosting(boostfit,newdata=ValidationSet)
+boostfit.pred$confusion
+```
+
+##Out of Sample Error Approximation
+
+The error on the Validation Set is `r boostfit.pred$error`. This is a good approximation of what the out of sample error might be, since these predictions were made on data that were not used for training the model.
+
+```{r}
+boostfit.pred$error
+```
+
+The accuracy of the model can then be approximated as 1 - error, or `r 1-boostfit.pred$error`, which can be considered to be sufficiently high for moving forward.
+
+##Processing the testing set.
+Before predicting the class on the hold-out (testing) set, the same variables need to be removed so the dataset matches the Training Set.
+
+```{r}
+testing2 <- testing[,names(testing) %in% keep_vars]
+TestSet <- select(testing2,-(1:7))
+```
+
+##Predicting New Values on the Test Set
+Finally, I used the final boosting model to predict the classes in the Test Set of 20 records. The predicted classes are shown below.
+
+```{r}
+test.pred <- predict.boosting(boostfit,newdata=TestSet)
+test.pred$class
+```
+
+I entered my predictions on the Test set into the Quiz on the Coursera website and my result was 19 out of 20 correct, or 95% correct, which is reasonably close to the accuracy found above (`r 1- boostfit.pred$error`).
+
+This is an acceptable result and shows how a rather accurate prediction model can be built relatively easily using the machine learning approaches available in R.
+
+
+
