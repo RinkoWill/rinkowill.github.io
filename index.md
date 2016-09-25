@@ -25,7 +25,7 @@ This app can help guide the decision making process by providing a dynamic inter
 
 ## Inputting Data
 
-To use the app, all you have to do is enter values for a few variables, using simple slider bars. Normally, it would be difficult to keep all of these variables in your mind at once when trying to think of an appropriate bid. This app does it all for you!
+To use the app, all you have to do is enter values for a few variables using simple slider bars. Normally, it would be difficult to keep all of these variables in your mind at once when trying to think of an appropriate bid. This app does it all for you!
 
 1. "Estimated Repair Costs"
     This value is entered as a range of dollar amounts. This is your best guess at how much it will cost to renovate and/or repair the property prior to reselling it.
@@ -48,8 +48,8 @@ To use the app, all you have to do is enter values for a few variables, using si
 
 The app automatically outputs the minimum and maximum bid you would need to make on the property to receive the desired return on investment based on the input variables you chose. There are two bid values (min and max) because the Estimated Repair Costs are given as a range of values. As an example, if your input values are:  
 * Estimated Repair Costs = $15,000-$30,000  
-* Monthly Loan and Tax Cost = $1000 | Months Needed for Repair" = 3  
-* House Value After Repairs" = $100,000 | Return on Cash Desired" = 9%  
+* Monthly Loan and Tax Cost = $1000 | Months Needed for Repair = 3  
+* House Value After Repairs = $100,000 | Return on Cash Desired = 9%  
 
 
 ```r
@@ -68,5 +68,3 @@ The model will tell you that your minimum bid should be $75,229 and your maximum
 The app also outputs a plot so you can visualize the maximum bid, the minimum bid, the median bid, and the percentage return on investment that you selected. This plot is reactive, so you can play around with different input values to see how they change the bid ranges. With smarter, more accurate bids, you can increase your sales volumes and ultimately your profits!
 
 ![plot of chunk unnamed-chunk-2](assets/fig/unnamed-chunk-2-1.png)
-
----

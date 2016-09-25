@@ -86,5 +86,3 @@ The app also outputs a plot so you can visualize the maximum bid, the minimum bi
         labs(title="Bid Range",x="Return (%)",y="Bid Amount ($)",colour="Bid and Return Guides")
         g
 ```
-
----
